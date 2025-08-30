@@ -1,16 +1,16 @@
 from langchain.prompts import PromptTemplate
-from langchain_openai import ChatOpenAI
+from langchain.chat_models import init_chat_model
 from dotenv import load_dotenv
 load_dotenv()
 
 question_template = PromptTemplate(
     input_variables=["name"],
-    template="Hi, I'm {name}! Tell me a joke with my name!"
+    template="Olá, eu sou {name}! Me conte uma piada usando meu nome! Responda em português do Brasil."
 )
 
-model = ChatOpenAI(model="gpt-5-mini", temperature=0.5)
+model = init_chat_model(model="gemini-2.5-flash", model_provider="google_genai")
 
 chain = question_template | model
 
-result = chain.invoke({"name": "Wesley"})
+result = chain.invoke({"name": "Adriano"})
 print(result.content)
