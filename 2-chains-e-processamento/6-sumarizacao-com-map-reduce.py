@@ -1,40 +1,40 @@
-from langchain_openai import ChatOpenAI
+from langchain.chat_models import init_chat_model
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.chains.summarize import load_summarize_chain
 from dotenv import load_dotenv
 load_dotenv()
 
 long_text = """
-Dawn threads a pale gold through the alley of glass.
-The city yawns in a chorus of brakes and distant sirens.
-Windows blink awake, one by one, like sleepy eyes.
-Streetcloth of steam curls from manholes, a quiet river.
-Coffee steam spirals above a newspaper's pale print.
-Pedestrians sketch light on sidewalks, hurried, loud with umbrellas.
-Buses swallow the morning with their loud yawns.
-A sparrow perches on a steel beam, surveying the grid.
-The subway sighs somewhere underground, a heartbeat rising.
-Neon still glows in the corners where night refused to retire.
-A cyclist cuts through the chorus, bright with chrome and momentum.
-The city clears its throat, the air turning a little less electric.
-Shoes hiss on concrete, a thousand small verbs of arriving.
-Dawn keeps its promises in the quiet rhythm of a waking metropolis.
-The morning light cascades through towering windows of steel and glass,
-casting geometric shadows on busy streets below.
-Traffic flows like rivers of metal and light,
-while pedestrians weave through crosswalks with purpose.
-Coffee shops exhale warmth and the aroma of fresh bread,
-as commuters clutch their cups like talismans against the cold.
-Street vendors call out in a symphony of languages,
-their voices mixing with the distant hum of construction.
-Pigeons dance between the feet of hurried workers,
-finding crumbs of breakfast pastries on concrete sidewalks.
-The city breathes in rhythm with a million heartbeats,
-each person carrying dreams and deadlines in equal measure.
-Skyscrapers reach toward clouds that drift like cotton,
-while far below, subway trains rumble through tunnels.
-This urban orchestra plays from dawn until dusk,
-a endless song of ambition, struggle, and hope.
+O amanhecer tece um ouro pálido através do beco de vidro.
+A cidade boceja em um coro de freios e sirenes distantes.
+Janelas piscam acordando, uma a uma, como olhos sonolentos.
+O vapor da rua se enrola das bocas de lobo, um rio silencioso.
+O vapor do café espirala sobre a pálida impressão do jornal.
+Pedestres desenham luz nas calçadas, apressados, barulhentos com guarda-chuvas.
+Ônibus engolem a manhã com seus bocejos altos.
+Um pardal pousa em uma viga de aço, observando a grade urbana.
+O metrô suspira em algum lugar subterrâneo, um batimento cardíaco crescente.
+O néon ainda brilha nos cantos onde a noite se recusou a se aposentar.
+Um ciclista corta através do coro, brilhante com cromo e momento.
+A cidade limpa sua garganta, o ar tornando-se um pouco menos elétrico.
+Sapatos sibilam no concreto, mil pequenos verbos de chegada.
+O amanhecer mantém suas promessas no ritmo silencioso de uma metrópole acordando.
+A luz da manhã cascateia através de janelas altas de aço e vidro,
+projetando sombras geométricas nas ruas movimentadas abaixo.
+O tráfego flui como rios de metal e luz,
+enquanto pedestres tecem através das faixas de pedestres com propósito.
+Cafeterias exalam calor e o aroma de pão fresco,
+enquanto passageiros agarram suas xícaras como talismãs contra o frio.
+Vendedores de rua chamam em uma sinfonia de línguas,
+suas vozes se misturando com o zumbido distante da construção.
+Pombos dançam entre os pés dos trabalhadores apressados,
+encontrando migalhas de pães matinais nas calçadas de concreto.
+A cidade respira em ritmo com um milhão de batimentos cardíacos,
+cada pessoa carregando sonhos e prazos em igual medida.
+Arranha-céus alcançam nuvens que flutuam como algodão,
+enquanto lá embaixo, trens do metrô ribombam através dos túneis.
+Esta orquestra urbana toca do amanhecer até o anoitecer,
+uma canção sem fim de ambição, luta e esperança.
 """
 
 splitter = RecursiveCharacterTextSplitter(
@@ -47,9 +47,32 @@ parts = splitter.create_documents([long_text])
 #     print(part.page_content)
 #     print("-"*30)
 
-llm = ChatOpenAI(model="gpt-5-nano", temperature=0)
+modelo = init_chat_model(model="gemini-2.5-flash", model_provider="google_genai")
 
-chain_sumarize = load_summarize_chain(llm, chain_type="map_reduce", verbose=True)
+from langchain.prompts import PromptTemplate
 
-result = chain_sumarize.invoke({"input_documents": parts})
-print(result)
+map_template = """Escreva um resumo conciso do seguinte texto em português do Brasil:
+
+{text}
+
+RESUMO CONCISO:"""
+map_prompt = PromptTemplate(template=map_template, input_variables=["text"])
+
+combine_template = """Escreva um resumo conciso dos seguintes resumos em português do Brasil:
+
+{text}
+
+RESUMO FINAL:"""
+combine_prompt = PromptTemplate(template=combine_template, input_variables=["text"])
+
+chain_sumarizar = load_summarize_chain(
+    modelo,
+    chain_type="map_reduce",
+    map_prompt=map_prompt,
+    combine_prompt=combine_prompt,
+    verbose=False
+)
+
+resultado = chain_sumarizar.invoke({"input_documents": parts})
+print("\nResumo final:")
+print(resultado["output_text"])
