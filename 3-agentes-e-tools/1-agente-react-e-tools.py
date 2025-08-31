@@ -1,78 +1,91 @@
 from langchain.tools import tool
-from langchain_openai import ChatOpenAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.agents import create_react_agent, AgentExecutor
 from langchain.prompts import PromptTemplate
 from dotenv import load_dotenv
+
 load_dotenv()
 
-@tool("calculator", return_direct=True)
-def calculator(expression: str) -> str:
-    """Evaluate a simple mathematical expression and return the result as a string."""
+@tool("calculadora", return_direct=True)
+def calculadora(expressao: str) -> str:
+    """Avalia uma expressão matemática simples e retorna o resultado como string."""
     try:
-        result = eval(expression)  # cuidado: apenas para exemplo didático
+        resultado = eval(expressao)  # cuidado: apenas para exemplo didático
     except Exception as e:
-        return f"Error: {e}"
-    return str(result)
+        return f"Erro: {e}"
+    return str(resultado)
 
-@tool("web_search_mock")
-def web_search_mock(query: str) -> str:
-    """Return the capital of a given country if it exists in the mock data."""
-    data = {
-        "Brazil": "Brasília",
-        "France": "Paris",
-        "Germany": "Berlin",
-        "Italy": "Rome",
-        "Spain": "Madrid",
-        "United States": "Washington, D.C."
-        
+@tool("buscar_capital")
+def buscar_capital(consulta: str) -> str:
+    """Retorna a capital de um determinado país se existir nos dados simulados."""
+    dados = {
+        "Brasil": "Brasília",
+        "França": "Paris",
+        "Alemanha": "Berlim",
+        "Itália": "Roma",
+        "Espanha": "Madri",
+        "Estados Unidos": "Washington, D.C."
     }
-    for country, capital in data.items():
-        if country.lower() in query.lower():
-            return f"The capital of {country} is {capital}."
-    return "I don't know the capital of that country."
+    for pais, capital in dados.items():
+        if pais.lower() in consulta.lower():
+            return f"A capital do(a) {pais} é {capital}."
+    return "Não sei a capital desse país."
 
+# Inicializar o modelo Gemini
+modelo = ChatGoogleGenerativeAI(
+    model="gemini-2.5-flash",
+    temperature=0,
+    convert_system_message_to_human=True
+)
 
-llm = ChatOpenAI(model="gpt-5-mini", disable_streaming=True)
-tools = [calculator, web_search_mock]
+# Configurar as ferramentas disponíveis
+ferramentas = [calculadora, buscar_capital]
 
 prompt = PromptTemplate.from_template(
 """
-Answer the following questions as best you can. You have access to the following tools.
-Only use the information you get from the tools, even if you know the answer.
-If the information is not provided by the tools, say you don't know.
+Responda as seguintes perguntas da melhor forma possível. Você tem acesso às ferramentas abaixo.
+Use apenas as informações obtidas das ferramentas, mesmo que você saiba a resposta.
+Se a informação não estiver disponível nas ferramentas, diga que não sabe.
 
 {tools}
 
-Use the following format:
+Use exatamente este formato:
 
-Question: the input question you must answer
-Thought: you should always think about what to do
-Action: the action to take, should be one of [{tool_names}]
-Action Input: the input to the action
-Observation: the result of the action
+Pergunta: a pergunta que você deve responder
+Pensamento: você deve sempre pensar sobre o que fazer
+Ação: a ação a ser tomada, deve ser uma destas [{tool_names}]
+Entrada da Ação: a entrada para a ação
+Observação: o resultado da ação
 
-... (this Thought/Action/Action Input/Observation can repeat N times)
-Thought: I now know the final answer
-Final Answer: the final answer to the original input question
+... (este Pensamento/Ação/Entrada da Ação/Observação pode se repetir)
+Pensamento: Agora sei a resposta final
+Resposta Final: a resposta final para a pergunta original
 
-Rules:
-- If you choose an Action, do NOT include Final Answer in the same step.
-- After Action and Action Input, stop and wait for Observation.
-- Never search the internet. Only use the tools provided.
+Regras:
+- Se você escolher uma Ação, NÃO inclua a Resposta Final no mesmo passo.
+- Após Ação e Entrada da Ação, espere pela Observação.
+- Nunca pesquise na internet. Use apenas as ferramentas fornecidas.
 
-Begin!
+Comece!
 
-Question: {input}
-Thought:{agent_scratchpad}"""
+Pergunta: {input}
+Pensamento:{agent_scratchpad}"""
 )
-agent_chain = create_react_agent(llm, tools, prompt, stop_sequence=False)
 
-agent_executor = AgentExecutor.from_agent_and_tools(
-    agent=agent_chain, 
-    tools=tools, 
+# Criar o agente com o modelo e ferramentas
+agente = create_react_agent(modelo, ferramentas, prompt)
+
+# Configurar o executor do agente
+executor_agente = AgentExecutor.from_agent_and_tools(
+    agent=agente, 
+    tools=ferramentas, 
     verbose=True, 
-    handle_parsing_errors="Invalid format. Either provide an Action with Action Input, or a Final Answer only.",
-    max_iterations=3)
+    handle_parsing_errors="Formato inválido. Forneça uma Ação com Entrada da Ação, ou apenas uma Resposta Final.",
+    max_iterations=3
+)
 
-print(agent_executor.invoke({"input": "What is the capital of Iran?"}))
-print(agent_executor.invoke({"input": "How much is 10 + 10?"}))
+# Testar o agente
+print("\nTestando o agente:\n")
+print(executor_agente.invoke({"input": "Qual é a capital do Brasil?"}))
+print("\n" + "="*50 + "\n")
+print(executor_agente.invoke({"input": "Quanto é 15 + 25?"}))
